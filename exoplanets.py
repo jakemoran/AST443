@@ -5,6 +5,7 @@ import datetime as dt
 
 from datetime import datetime, timezone
 
+# Get the current UTC time
 now = datetime.now(timezone.utc)
 this_year = now.year
 this_month = now.month
@@ -173,7 +174,7 @@ while count < num_planets:
 
 '''
 Only consider planets that have a max altitude of 40 degrees as seen from Stony Brook (corresponds
-to a declination between -9 and 91).
+to a declination between -9 and 90).
 '''
 num_planets = len(exoplanets_array) - 1
 count = 0
@@ -182,7 +183,7 @@ num_removed = 0
 while count < num_planets:
     # Remove the planet if the declination is not in the database or is outside the range
     if not is_number(exoplanets_array[count - num_removed + 1][dec_index]) or \
-        -9.0 > float(exoplanets_array[count - num_removed + 1][dec_index]) < 91.0:
+        -9.0 > float(exoplanets_array[count - num_removed + 1][dec_index]) < 90.0:
         del exoplanets_array[count - num_removed + 1]
         num_removed += 1
     count += 1
@@ -191,7 +192,8 @@ while count < num_planets:
 
 '''
 Only consider stars that culminate in the middle of the night (approximately 11:30 pm to
-3:30 am), corresponding to a right ascension between 270 and 330 degrees.
+3:30 am), corresponding to a right ascension between 270 and 330 degrees. This may be slightly
+off, and will vary a little bit over the course of the next month, but should be good enough.
 '''
 num_planets = len(exoplanets_array) - 1
 count = 0
@@ -256,9 +258,14 @@ first_start_jd = getJD(2021, 9, 2.067)
 time_range = 0.16712
 start_jd = first_start_jd
 
+'''
+This creates a list of the observing times in the next month. Each element in the list is a
+list of the form [start time, end time] in units of Julian days. Again, this is approximately
+11:30 pm to 3:30 am each night of September.
+'''
 for i in range(1, 30):
     observing_times.append([start_jd, start_jd+time_range])
-    start_jd += 1.00272
+    start_jd += 1
 
 while count < num_planets:
 
@@ -272,6 +279,11 @@ while count < num_planets:
         valid = False
         num_removed += 1
 
+    '''
+    The database has two different catagories for times of the transit, and each one only has
+    one or the other, so we have to check which is there and then use that one for the first
+    transit time.
+    '''
     elif is_number(exoplanets_array[count - num_removed + 1][tconj_index]):
         first_transit = float(exoplanets_array[count - num_removed + 1][tconj_index])
         valid = True
@@ -279,10 +291,13 @@ while count < num_planets:
         first_transit = float(exoplanets_array[count - num_removed + 1][tzero_index])
         valid = True
 
-    # If there is an available transit time, calculate when the last transit was and
-    # append the next 30 transits to a list
+    '''
+    If there is an available transit time, calculate when the last transit was and
+    append the next 30 transits to a list
+    '''
     if valid:
 
+        # Define some important properties of the planet to be used for calculations
         period = float(exoplanets_array[count - num_removed + 1][period_index])
         name = exoplanets_array[count - num_removed + 1][0]
         ra = float(exoplanets_array[count - num_removed + 1][ra_index])
@@ -292,8 +307,18 @@ while count < num_planets:
         sma = float(exoplanets_array[count - num_removed + 1][sma_index]) * 1.5e11
         transit_signature = (radius / star_radius)**2
 
+        '''
+        Using the Julian date of the first transit along with the current Julian date and the
+        period of the planet's orbit, we can get the Julian date of the most recent transit, and
+        then we will calculate subsequent transits starting from this time.
+        '''
         last_transit = (math.floor((getJD() - first_transit) / period) * period) + first_transit
 
+        '''
+        This calculates the times of the next 50 transits for each planet. Some planets have very
+        short orbital periods so this was just to make sure we got all of them. The list of all
+        transits contains all of the necessary information about the transit that we may need.
+        '''
         for i in range(1, 50):
             list_of_transits.append([name, ra, dec, last_transit + i*period, transit_signature,
                                      calc_transit_time(sma, star_radius, radius, period*24)])
@@ -302,16 +327,20 @@ while count < num_planets:
 
 usable_transits = []
 
+'''
+For each transit that was calculated, we compare it to the list of observation times. If the transit
+falls within the time range for any of the observing days, it is a usable transit and we add it to a
+new list.
+'''
 for transit in list_of_transits:
     for time in observing_times:
         if time[0] < transit[3] < time[1]:
             usable_transits.append(transit)
 
+'''
+Finally, we print out important details of all the usable transits.
+'''
 for transit in usable_transits:
     print(f'Name: {transit[0]}, RA: {transit[1]}, DEC: {transit[2]}, '
           f'Transit Time (JD): {transit[3]}, Transit Time (UTC): {jd_to_UTC(transit[3])}, '
           f'Transit Signature: {transit[4]}, Transit Duration (hr): {transit[5]}')
-
-print(len(usable_transits))
-
-print(getJD())

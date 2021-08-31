@@ -183,7 +183,7 @@ num_removed = 0
 while count < num_planets:
     # Remove the planet if the declination is not in the database or is outside the range
     if not is_number(exoplanets_array[count - num_removed + 1][dec_index]) or \
-        -9.0 > float(exoplanets_array[count - num_removed + 1][dec_index]) < 90.0:
+        float(exoplanets_array[count - num_removed + 1][dec_index]) < -9:
         del exoplanets_array[count - num_removed + 1]
         num_removed += 1
     count += 1
